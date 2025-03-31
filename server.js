@@ -1,20 +1,20 @@
 const express = require("express");
-const cors = require("cors");  
 const puppeteer = require("puppeteer");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
 const sharp = require("sharp");
+const cors = require("cors");
 
 const app = express();
 
 app.use(express.static(__dirname));
 app.use(express.json());
-app.use(cors()); 
+app.use(cors());
 
-let browser;
-let page;
+let activeRequests = 0; // عدد الطلبات النشطة
+const MAX_REQUESTS = 2; // الحد الأقصى للطلبات في نفس الوقت
 let progress = 0;
 
 function getEpisodeUrl(mangaName, episodeNum) {
@@ -115,23 +115,6 @@ function createPDF(imageBuffers, mangaName, episodeNum) {
   });
 }
 
-function setupBrowser() {
-  return new Promise(async (resolve) => {
-    browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
-    page = await browser.newPage();
-    console.log("Opened the browser!");
-    resolve();
-  });
-}
-
-function closeBrowser() {
-  return new Promise(async (resolve) => {
-    await browser.close();
-    console.log("Closed the browser!");
-    resolve();
-  });
-}
-
 app.get("/progress", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -158,27 +141,31 @@ app.post("/download", async (req, res) => {
     return res.status(400).json({ error: "Please provide manga name and episode number" });
   }
 
+  if (activeRequests >= MAX_REQUESTS) {
+    return res.status(503).json({ error: "Server is busy with other downloads. Please try again later." });
+  }
+
+  let browser, page;
   try {
+    activeRequests++;
     progress = 0;
-    await setupBrowser();
+
+    browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    page = await browser.newPage();
+    console.log("Opened the browser!");
 
     const episodeUrl = await getEpisodeUrl(mangaName, episodeNum);
     if (!episodeUrl) {
-      await closeBrowser();
-      return res.status(404).json({ error: "Couldn't find the episode URL" });
+      throw new Error("Couldn't find the episode URL");
     }
 
     const imageUrls = await getImagesFromEpisode(episodeUrl);
     if (imageUrls.length == 0) {
-      await closeBrowser();
-      return res.status(404).json({ error: "No images found in the episode" });
+      throw new Error("No images found in the episode");
     }
 
     const imageBuffers = await downloadImages(imageUrls);
     const pdfPath = await createPDF(imageBuffers, mangaName, episodeNum);
-
-    await closeBrowser();
-    console.log("Everything is done!");
 
     res.download(pdfPath, `${mangaName.replace(/\s+/g, "_")}_Ep${episodeNum}.pdf`, (err) => {
       if (err) {
@@ -191,8 +178,11 @@ app.post("/download", async (req, res) => {
       });
     });
   } catch (error) {
-    await closeBrowser();
     res.status(500).json({ error: "Something went wrong: " + error.message });
+  } finally {
+    if (browser) await browser.close();
+    activeRequests--;
+    console.log("Closed the browser! Active requests:", activeRequests);
   }
 });
 
