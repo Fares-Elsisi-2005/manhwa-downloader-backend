@@ -13,11 +13,11 @@ app.use(express.static(__dirname));
 app.use(express.json());
 app.use(cors());
 
-let activeRequests = 0; // عدد الطلبات النشطة
-const MAX_REQUESTS = 2; // الحد الأقصى للطلبات في نفس الوقت
+let activeRequests = 0; // number of active requests
+const MAX_REQUESTS = 1; //the max num of requests in the same time
 let progress = 0;
 
-async function getEpisodeUrl(page, mangaName, episodeNum) { // أضفنا page كمعامل
+async function getEpisodeUrl(page, mangaName, episodeNum) {   
   return new Promise(async (resolve) => {
     await page.goto("https://www.webtoons.com/en/", { waitUntil: "domcontentloaded" });
     await page.click(".btn_search._btnSearch");
@@ -49,7 +49,7 @@ async function getEpisodeUrl(page, mangaName, episodeNum) { // أضفنا page �
   });
 }
 
-async function getImagesFromEpisode(page, episodeUrl) { // أضفنا page كمعامل
+async function getImagesFromEpisode(page, episodeUrl) {       
   return new Promise(async (resolve) => {
     await page.goto(episodeUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
     const imageUrls = await page.evaluate(() => {
@@ -154,12 +154,12 @@ app.post("/download", async (req, res) => {
     page = await browser.newPage();
     console.log("Opened the browser!");
 
-    const episodeUrl = await getEpisodeUrl(page, mangaName, episodeNum); // مررنا page هنا
+    const episodeUrl = await getEpisodeUrl(page, mangaName, episodeNum); 
     if (!episodeUrl) {
       throw new Error("Couldn't find the episode URL");
     }
 
-    const imageUrls = await getImagesFromEpisode(page, episodeUrl); // مررنا page هنا
+    const imageUrls = await getImagesFromEpisode(page, episodeUrl);  
     if (imageUrls.length == 0) {
       throw new Error("No images found in the episode");
     }
