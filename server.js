@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");  
 const puppeteer = require("puppeteer");
 const axios = require("axios");
 const fs = require("fs");
@@ -10,6 +11,7 @@ const app = express();
 
 app.use(express.static(__dirname));
 app.use(express.json());
+app.use(cors()); 
 
 let browser;
 let page;
