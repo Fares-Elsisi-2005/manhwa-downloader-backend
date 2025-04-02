@@ -38,7 +38,7 @@ async function getEpisodeUrl(page, mangaName, episodeNum) {
   await page.type(".input_search._txtKeyword", mangaName);
   await page.keyboard.press("Enter");
   console.log(`Searched for ${mangaName}`);
-  await page.waitForSelector(".card_lst", { timeout: 5000 });
+  await page.waitForSelector(".card_lst", { timeout: 7000 });
   const mangaUrl = await page.evaluate(() => {
     const link = document.querySelector(".card_lst li a");
     return link ? link.href : null;
