@@ -118,7 +118,7 @@ app.get("/progress", (req, res) => {
       res.write(`data: ${JSON.stringify({ progress: Math.round(progress) })}\n\n`);
       console.log(`Sent progress update: ${progress}%`);
     }
-  }, 500);
+  }, 1000);
 
   req.on("close", () => {
     clearInterval(interval);
