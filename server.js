@@ -14,7 +14,7 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") {
-    return res.sendStatus(200); // الرد على طلبات الـ preflight
+    return res.sendStatus(200);
   }
   next();
 });
@@ -109,19 +109,26 @@ app.get("/progress", (req, res) => {
   res.write(`data: ${JSON.stringify({ progress: 0 })}\n\n`);
 
   const interval = setInterval(() => {
-    res.write(`data: ${JSON.stringify({ progress: Math.round(progress) })}\n\n`);
-    console.log(`Sent progress update: ${progress}%`);
+    if (activeRequests === 0) {
+      clearInterval(interval);
+      res.write(`data: ${JSON.stringify({ progress: 0, done: true })}\n\n`);
+      res.end();
+      console.log("Progress stream stopped because no active requests");
+    } else {
+      res.write(`data: ${JSON.stringify({ progress: Math.round(progress) })}\n\n`);
+      console.log(`Sent progress update: ${progress}%`);
+    }
   }, 500);
 
   req.on("close", () => {
     clearInterval(interval);
     res.end();
-    console.log("Progress connection closed");
+    console.log("Progress connection closed by client");
   });
 });
 
 app.post("/download", async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*"); // تأكد من الـ CORS للـ POST
+  res.setHeader("Access-Control-Allow-Origin", "*");
   const { mangaName, episodeNum } = req.body;
   console.log(`Received download request for ${mangaName}, Episode ${episodeNum}`);
 
