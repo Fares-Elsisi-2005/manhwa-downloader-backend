@@ -22,7 +22,7 @@ app.use((req, res, next) => {
 app.use(express.static(__dirname));
 
 let activeRequests = 0;
-const MAX_REQUESTS = 1;
+const MAX_REQUESTS = 3;
 let progress = 0;
 
 async function getEpisodeUrl(page, mangaName, episodeNum) {
