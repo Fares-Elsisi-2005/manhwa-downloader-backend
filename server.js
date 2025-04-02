@@ -21,7 +21,11 @@ let progress = 0;
 
 async function getEpisodeUrl(page, mangaName, episodeNum) {
   console.log(`Fetching episode URL for ${mangaName}, Episode ${episodeNum}`);
-  await page.goto("https://www.webtoons.com/en/", { waitUntil: "domcontentloaded" });
+  await page.setExtraHTTPHeaders({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Referer": "https://www.webtoons.com/",
+  });
+  await page.goto("https://www.webtoons.com/en/", { waitUntil: "domcontentloaded", timeout: 60000 });
   console.log("Loaded Webtoons homepage");
   await page.click(".btn_search._btnSearch");
   await page.waitForSelector(".input_search._txtKeyword", { visible: true, timeout: 5000 });
@@ -53,7 +57,11 @@ async function getEpisodeUrl(page, mangaName, episodeNum) {
 
 async function getImagesFromEpisode(page, episodeUrl) {
   console.log(`Loading episode page: ${episodeUrl}`);
-  await page.goto(episodeUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.setExtraHTTPHeaders({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Referer": "https://www.webtoons.com/",
+  });
+  await page.goto(episodeUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
   const imageUrls = await page.evaluate(() => {
     const images = document.querySelectorAll("#_imageList img._images");
     return Array.from(images)
@@ -91,6 +99,8 @@ app.get("/progress", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("Access-Control-Allow-Origin", "*"); // تأكد من الـ CORS لـ SSE
+  res.write(`data: ${JSON.stringify({ progress: 0 })}\n\n`); // رسالة فورية عشان الـ Frontend يفضل متصل
 
   const interval = setInterval(() => {
     res.write(`data: ${JSON.stringify({ progress: Math.round(progress) })}\n\n`);
