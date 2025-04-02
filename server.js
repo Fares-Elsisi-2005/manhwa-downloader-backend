@@ -7,11 +7,17 @@ const axios = require("axios");
 const app = express();
 
 app.use(express.json());
-app.use(cors({
-  origin: "*", // Allows any origin
-  methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type"]
-}));
+
+// Middleware للتعامل مع الـ CORS وطلبات الـ OPTIONS
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200); // الرد على طلبات الـ preflight
+  }
+  next();
+});
 
 app.use(express.static(__dirname));
 
@@ -83,7 +89,7 @@ async function downloadImages(imageUrls) {
       });
       const base64 = `data:image/jpeg;base64,${Buffer.from(response.data).toString("base64")}`;
       imagesBase64.push(base64);
-      progress = ((i + 1) / imageUrls.length) * 50; // 50% للتحميل من الـ backend
+      progress = ((i + 1) / imageUrls.length) * 50;
       console.log(`Downloaded image ${i + 1}/${imageUrls.length}, Progress: ${progress}%`);
     } catch (error) {
       console.log(`Failed to download image ${i + 1}: ${imageUrls[i]}, Error: ${error.message}`);
@@ -99,8 +105,8 @@ app.get("/progress", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "*"); // تأكد من الـ CORS لـ SSE
-  res.write(`data: ${JSON.stringify({ progress: 0 })}\n\n`); // رسالة فورية عشان الـ Frontend يفضل متصل
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.write(`data: ${JSON.stringify({ progress: 0 })}\n\n`);
 
   const interval = setInterval(() => {
     res.write(`data: ${JSON.stringify({ progress: Math.round(progress) })}\n\n`);
@@ -115,6 +121,7 @@ app.get("/progress", (req, res) => {
 });
 
 app.post("/download", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*"); // تأكد من الـ CORS للـ POST
   const { mangaName, episodeNum } = req.body;
   console.log(`Received download request for ${mangaName}, Episode ${episodeNum}`);
 
@@ -133,7 +140,10 @@ app.post("/download", async (req, res) => {
     activeRequests++;
     progress = 0;
     console.log("Starting browser...");
-    browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    });
     page = await browser.newPage();
     console.log("Browser started");
 
@@ -144,7 +154,7 @@ app.post("/download", async (req, res) => {
     if (imageUrls.length === 0) throw new Error("No images found");
 
     const imagesBase64 = await downloadImages(imageUrls);
-    progress = 50; // 50% بعد التحميل من الـ backend
+    progress = 50;
     console.log("Sending base64 images to client");
     res.json({ images: imagesBase64 });
   } catch (error) {
@@ -161,6 +171,7 @@ app.post("/download", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log(`Server running on http://localhost:${process.env.PORT || 3000}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
